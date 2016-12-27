@@ -14,11 +14,16 @@ import matplotlib
 import wx
 import wx.xrc
 import os
+
+import gtk
+
 matplotlib.use('WXAgg')
 import matplotlib.cm as cm
 import matplotlib.cbook as cbook
 from matplotlib.backends.backend_wxagg import Toolbar, FigureCanvasWxAgg
+from matplotlib.backends.backend_wx import NavigationToolbar2Wx
 from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 import numpy as np
 
 from xppcall import xpprun, read_pars, read_inits, read_numerics
@@ -27,9 +32,6 @@ from xppcall import xpprun, read_pars, read_inits, read_numerics
 ## Class MainFrame
 ###########################################################################
 
-ERR_TOL = 1e-5  # floating point slop for peak-detection
-
-
 matplotlib.rc('image', origin='lower')
 
 
@@ -37,9 +39,17 @@ class PlotPanel(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent, -1)
 
-        self.fig = Figure()
+        #self.fig = Figure()
+        self.fig, self.ax = plt.subplots()
+        self.lines, = self.ax.plot([],[])
+        self.ax.set_autoscaley_on(True)
+        #self.ax.set_xlim(self.min_x, self.max_x)
+
         self.canvas = FigureCanvasWxAgg(self, -1, self.fig)
-        self.toolbar = Toolbar(self.canvas)  # matplotlib toolbar
+        #self.toolbar = NavigationToolbar(self.canvas,parent)
+        #self.toolbar = NavigationToolbar(self.canvas, win)
+        self.toolbar = NavigationToolbar2Wx(self.canvas)
+        #self.toolbar = Toolbar(self.canvas)  # matplotlib toolbar
         self.toolbar.Realize()
         # self.toolbar.set_active([0,1])
 
@@ -71,13 +81,18 @@ class PlotPanel(wx.Panel):
         self.toolbar.update()  # Not sure why this is needed - ADS
 
     def init_plot(self,x,y,title='',xlabel='',ylabel=''):
-        ax = self.fig.add_subplot(111)
 
-        self.lines = ax.plot(x,y)
+        self.lines.set_xdata(x)#plot(x,y)
+        self.lines.set_ydata(y)
+    
+        self.ax.relim()
+        self.ax.autoscale_view()
+
+
+        self.canvas.draw()        
+        self.canvas.flush_events()
 
         self.toolbar.update()  # Not sure why this is needed - ADS
-
-
     
     def GetToolBar(self):
         # You will need to override GetToolBar if you are using an
@@ -180,7 +195,6 @@ class MainFrame ( wx.Frame ):
         self.openButton = wx.Button( self.Equations, wx.ID_ANY, u"Open...", wx.DefaultPosition, wx.DefaultSize, 0 )
         bSizer10.Add( self.openButton, 0, wx.ALL, 5 )
 
-        
         self.saveButton = wx.Button( self.Equations, wx.ID_ANY, u"Save and Run", wx.DefaultPosition, wx.DefaultSize, 0 )
         bSizer10.Add( self.saveButton, 0, wx.ALL, 5 )
 
@@ -222,10 +236,12 @@ class MainFrame ( wx.Frame ):
         self.Layout()
         
         
-        filemenu= wx.Menu()
+        filemenu = wx.Menu()
+        recent = wx.Menu()
         
         # wx.ID_ABOUT and wx.ID_EXIT are standard ids provided by wxWidgets.
         menuOpen = filemenu.Append(wx.ID_OPEN,"Open...","Open an ODE file")
+        menuRecent = filemenu.AppendMenu(wx.ID_ANY,"&Recent Files", recent)
         menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
         
         
@@ -233,21 +249,21 @@ class MainFrame ( wx.Frame ):
         menuBar = wx.MenuBar()
         menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
         self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
-        
+
         # Set events.
+        # menu events
         self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
+        self.Bind(wx.EVT_MENU_RANGE, self.on_file_history, id=wx.ID_FILE1, id2=wx.ID_FILE9)
         self.Bind(wx.EVT_MENU, self.OnOpen, menuOpen)
 
+        # button events
         self.Bind(wx.EVT_BUTTON, self.RunAndSave, self.saveButton)
         self.Bind(wx.EVT_BUTTON, self.OnOpen, self.openButton)
-        
-        self.Show(True)
 
+        self.Show(True)
 
         # matplotlib panel
         self.plotpanel = PlotPanel(self.Graphs)
-
-
 
         self.fullname = ''
         
@@ -262,6 +278,7 @@ class MainFrame ( wx.Frame ):
         if dlg.ShowModal() == wx.ID_OK:
             self.filename = dlg.GetFilename()
             self.dirname = dlg.GetDirectory()
+            #print self.filename,self.dirname
             self.fullname = os.path.join(self.dirname, self.filename)
             f = open(self.fullname, 'r')
 
@@ -304,11 +321,16 @@ class MainFrame ( wx.Frame ):
             f.close()
         dlg.Destroy()
         
-    
+    def on_file_history(self, event):
+        fileNum = event.GetId() - wx.ID_FILE1
+        path = self.filehistory.GetHistoryFile(fileNum)
+        self.filehistory.AddFileToHistory(path)  # move up the list
+        # do whatever you want with the file path...
+
 
     def RunAndSave(self,e):
         try:
-            print 'running xpp'
+            #print 'running xpp'
             self.npa, self.vn = xpprun(self.fullname, clean_after=True)
             self.t = self.npa[:,0]
             self.sv = self.npa[:,1:]
