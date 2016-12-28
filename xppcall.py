@@ -313,7 +313,7 @@ def xpprun(filepath, version=8, xppname='xppaut', postfix='_tmp', parameters=Non
     #print return_tempname, clean_after
     if return_tempname and not(clean_after):
         #print ret+outputfilepath
-        return ret+(outputfilepath,)
+        return ret+(fullfilename,outputfilepath)
     else:
         return ret
 

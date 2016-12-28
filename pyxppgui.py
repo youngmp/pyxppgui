@@ -130,11 +130,16 @@ class MainFrame ( wx.Frame ):
         
         Equations = wx.BoxSizer( wx.VERTICAL )
         
-        self.m_staticText1 = wx.StaticText( self.Equations, wx.ID_ANY, u"Equations", wx.DefaultPosition, wx.DefaultSize, 0 )
-        self.m_staticText1.Wrap( -1 )
-        Equations.Add( self.m_staticText1, 0, wx.ALL, 5 )
+        self.eqn_txt = wx.StaticText( self.Equations, wx.ID_ANY, u"Equations", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.eqn_txt.Wrap( -1 )
+
+        Equations.Add( self.eqn_txt, 0, wx.ALL, 5 )
         
-        self.eqnDisplay = wx.TextCtrl( self.Equations, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, style=wx.TE_MULTILINE|wx.TE_READONLY )
+        self.eqnDisplay = wx.TextCtrl( self.Equations, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, style=wx.TE_MULTILINE )
+        self.eqnDisplay.CanCut()
+        self.eqnDisplay.CanPaste()
+        self.eqnDisplay.CanCopy()
+        self.eqnDisplay.CanUndo()
         Equations.Add( self.eqnDisplay, 1, wx.ALL|wx.EXPAND, 5 )
         
         
@@ -145,8 +150,8 @@ class MainFrame ( wx.Frame ):
         self.m_staticText11 = wx.StaticText( self.Equations, wx.ID_ANY, u"Parameters", wx.DefaultPosition, wx.DefaultSize, 0 )
         self.m_staticText11.Wrap( -1 )
         Parameters.Add( self.m_staticText11, 0, wx.ALL, 5 )
-        
-        self.paramDisplay = wx.TextCtrl( self.Equations, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_MULTILINE|wx.TE_READONLY )
+
+        self.paramDisplay = wx.TextCtrl( self.Equations, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_MULTILINE)
         Parameters.Add( self.paramDisplay, 1, wx.ALL|wx.EXPAND, 5 )
         
         
@@ -158,19 +163,17 @@ class MainFrame ( wx.Frame ):
         self.m_staticText111.Wrap( -1 )
         Initial_Conditions.Add( self.m_staticText111, 0, wx.ALL, 5 )
         
-        self.initDisplay = wx.TextCtrl( self.Equations, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_MULTILINE|wx.TE_READONLY )
+        self.initDisplay = wx.TextCtrl( self.Equations, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_MULTILINE)
         Initial_Conditions.Add( self.initDisplay, 1, wx.ALL|wx.EXPAND, 5 )
-        
-        
-        gSizer1.Add( Initial_Conditions, 2, wx.EXPAND, 5 )
-        
+        gSizer1.Add( Initial_Conditions, 2, wx.EXPAND, 5 )        
         Options = wx.BoxSizer( wx.VERTICAL )
         
+
         self.m_staticText1111 = wx.StaticText( self.Equations, wx.ID_ANY, u"Options", wx.DefaultPosition, wx.DefaultSize, 0 )
         self.m_staticText1111.Wrap( -1 )
         Options.Add( self.m_staticText1111, 0, wx.ALL, 5 )
         
-        self.optDisplay = wx.TextCtrl( self.Equations, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_MULTILINE|wx.TE_READONLY )
+        self.optDisplay = wx.TextCtrl( self.Equations, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_MULTILINE)
         Options.Add( self.optDisplay, 1, wx.ALL|wx.EXPAND, 5 )
         
         gSizer1.Add( Options, 2, wx.EXPAND, 5 )
@@ -190,7 +193,7 @@ class MainFrame ( wx.Frame ):
         self.openButton = wx.Button( self.Equations, wx.ID_ANY, u"Open...", wx.DefaultPosition, wx.DefaultSize, 0 )
         bSizer10.Add( self.openButton, 0, wx.ALL, 5 )
 
-        self.saveButton = wx.Button( self.Equations, wx.ID_ANY, u"Save and Run", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.saveButton = wx.Button( self.Equations, wx.ID_ANY, u"Run", wx.DefaultPosition, wx.DefaultSize, 0 )
         bSizer10.Add( self.saveButton, 0, wx.ALL, 5 )
 
 
@@ -250,7 +253,7 @@ class MainFrame ( wx.Frame ):
         sizerbuttons.Add(self.sv_choicey)
         
         # add note on control
-        self.hint_specific = wx.StaticText( self.Graphs, wx.ID_ANY, u"\tTo zoom in/out, hold Ctrl+Right click and move the mouse around.", wx.DefaultPosition, wx.DefaultSize)
+        self.hint_specific = wx.StaticText( self.Graphs, wx.ID_ANY, u"\tTo zoom in/out, selct the move button below, then hold Ctrl+Right click and move the mouse around.", wx.DefaultPosition, wx.DefaultSize)
         sizerbuttons.Add(self.hint_specific)
 
 
@@ -320,13 +323,35 @@ class MainFrame ( wx.Frame ):
         self.fullname = ''
 
         self.Show(True)
+
+    def UpdateParams(self,e,plist):
+        """
+        update parameter list 
+        """
+        
+        for p in plist:
+            pass
+        pass
+
         
     def OnExit(self,e):
         self.Close(True)  # Close the frame.
 
+    def h2xppcall(self,a):
+        """
+        convert human-readable format into xppcall compatible format
+        """
+        pass
+
+    def xppcall2h(self,a):
+        """
+        convert xppcall format to human-readable format.
+        """
+        pass
 
     def OnOpen(self,e):
         """ Open a file"""
+        self.firstrun = True
         self.dirname = ''
         dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "ODE files (*.ode)|*.ode|All Files (*.*)|*.*", wx.OPEN)
         if dlg.ShowModal() == wx.ID_OK:
@@ -344,27 +369,27 @@ class MainFrame ( wx.Frame ):
 
             
             # read parameters and display
-            params = read_pars(self.fullname)
+            self.params = read_pars(self.fullname)
             paramslist = ''
-            for i in params:
-                paramslist += str(i)+'='+params[i]+'\n'
+            for i in self.params:
+                paramslist += str(i)+'='+self.params[i]+'\n'
             
             self.paramDisplay.SetValue(paramslist)
 
             # read initial conditions and display
-            inits = read_inits(self.fullname)
+            self.inits = read_inits(self.fullname)
             initslist = ''
-            for i in inits:
-                initslist += str(i)+'='+inits[i]+'\n'
+            for i in self.inits:
+                initslist += str(i)+'='+self.inits[i]+'\n'
             
             self.initDisplay.SetValue(initslist)
             
 
             # read options and display
-            opts = read_numerics(self.fullname)
+            self.opts = read_numerics(self.fullname)
             optslist = ''
-            for i in opts:
-                optslist += str(i)+'='+opts[i]+'\n'
+            for i in self.opts:
+                optslist += str(i)+'='+self.opts[i]+'\n'
             self.optDisplay.SetValue(optslist)
 
 
@@ -413,13 +438,32 @@ class MainFrame ( wx.Frame ):
 
     def RunAndSave(self,e):
         try:
+            # get parameter values from windows
+            if self.firstrun:
+                self.params={}
+                self.opts={}
+                self.inits={}
+            
+
+            # http://stackoverflow.com/questions/1781571/how-to-concatenate-two-dictionaries-to-create-a-new-one-in-python
+            # parameters and options are input using the same dictionary.
+            combinedin = dict(self.params.items() + self.opts.items())
+
             #print 'running xpp'
-            self.npa, self.vn, outputfilepath = xpprun(self.fullname, clean_after=False,return_tempname=True)
+            self.npa, self.vn, fullfilename,outputfilepath = xpprun(self.fullname, 
+                                                                     parameters=combinedin,
+                                                                     inits=self.inits,
+                                                                     clean_after=False,return_tempname=True)
+
+
             self.t = self.npa[:,0]
             self.sv = self.npa[:,1:]
 
-            self.plotx = self.t
-            self.ploty = self.npa[:,1]
+            if self.firstrun:
+                # show simple plot by default
+                self.plotx = self.t
+                self.ploty = self.npa[:,1]
+                self.firstrun = False
 
             # update graph tab
             self.plotpanel.init_plot(self.plotx,self.ploty)
@@ -427,9 +471,11 @@ class MainFrame ( wx.Frame ):
             # update data tab
             f = open(outputfilepath, 'r')
             self.outDisplay.SetValue(f.read())
+            f.close()
 
             # clean temporary ode files
             os.remove(outputfilepath)
+            #os.remove(fullfilename)
 
             # set x vs y plot options 
             # loop over dictionary to extract state variables
