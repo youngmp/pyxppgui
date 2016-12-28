@@ -39,29 +39,36 @@ class PlotPanel(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent, -1)
 
+        self.parent = parent
+
         #self.fig = Figure()
         self.fig, self.ax = plt.subplots()
         self.lines, = self.ax.plot([],[])
         self.ax.set_autoscaley_on(True)
+        self.ax.set_autoscalex_on(True)
         #self.ax.set_xlim(self.min_x, self.max_x)
 
         self.canvas = FigureCanvasWxAgg(self, -1, self.fig)
-        #self.toolbar = NavigationToolbar(self.canvas,parent)
-        #self.toolbar = NavigationToolbar(self.canvas, win)
         self.toolbar = NavigationToolbar2Wx(self.canvas)
-        #self.toolbar = Toolbar(self.canvas)  # matplotlib toolbar
+
         self.toolbar.Realize()
+        #plt.subplots_adjust(left=0.1, right=0.1, top=0.1, bottom=0.1)
+        self.fig.tight_layout()
         # self.toolbar.set_active([0,1])
 
         # Now put all into a sizer
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # This way of adding to sizer allows resizing
-        sizer.Add(self.canvas, 1, wx.LEFT | wx.TOP | wx.GROW)
+        sizer.Add(self.canvas, 1, wx.EXPAND | wx.ALL)
         # Best to allow the toolbar to resize!
         sizer.Add(self.toolbar, 0, wx.GROW)
+
         self.SetSizer(sizer)
+
+
         self.Fit()
+        #self.Show()
 
     def init_plot_array(self):
         ax = self.fig.add_subplot(111)
@@ -93,25 +100,13 @@ class PlotPanel(wx.Panel):
         self.canvas.flush_events()
 
         self.toolbar.update()  # Not sure why this is needed - ADS
+        #plt.subplots_adjust(left=0.1, right=0.1, top=0.1, bottom=0.1)
+        self.fig.tight_layout()
     
     def GetToolBar(self):
         # You will need to override GetToolBar if you are using an
         # unmanaged toolbar in your frame
         return self.toolbar
-
-    def OnWhiz(self, evt):
-        self.x += np.pi / 15
-        self.y += np.pi / 20
-        z = np.sin(self.x) + np.cos(self.y)
-        self.im.set_array(z)
-
-        zmax = np.amax(z) - ERR_TOL
-        ymax_i, xmax_i = np.nonzero(z >= zmax)
-        if self.im.origin == 'upper':
-            ymax_i = z.shape[0] - ymax_i
-        self.lines[0].set_data(xmax_i, ymax_i)
-
-        self.canvas.draw()
 
     def onEraseBackground(self, evt):
         # this is supposed to prevent redraw flicker on some X servers...
@@ -213,6 +208,7 @@ class MainFrame ( wx.Frame ):
         self.Output = wx.Panel( self.m_notebook1, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
         bSizer3 = wx.BoxSizer( wx.VERTICAL )
 
+        ## xpp output
         # text box for xpp output
         self.outDisplay = wx.TextCtrl( self.Output, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_MULTILINE|wx.TE_READONLY|wx.TE_WORDWRAP )
         bSizer3.Add( self.outDisplay, 1, wx.ALL|wx.EXPAND, 5 )
@@ -223,8 +219,7 @@ class MainFrame ( wx.Frame ):
         bSizer3.Fit( self.Output )
         self.m_notebook1.AddPage( self.Output, u"Output", False )
 
-
-
+        # graphs
         self.Graphs = wx.Panel( self.m_notebook1, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
         self.m_notebook1.AddPage( self.Graphs, u"Graphs", False )
 
@@ -259,13 +254,20 @@ class MainFrame ( wx.Frame ):
         # button events
         self.Bind(wx.EVT_BUTTON, self.RunAndSave, self.saveButton)
         self.Bind(wx.EVT_BUTTON, self.OnOpen, self.openButton)
+        
 
-        self.Show(True)
+        # plot resize event
+        self.Bind(wx.EVT_SIZE, self.OnSize) 
+
+
+
 
         # matplotlib panel
         self.plotpanel = PlotPanel(self.Graphs)
 
         self.fullname = ''
+
+        self.Show(True)
         
     def OnExit(self,e):
         self.Close(True)  # Close the frame.
@@ -328,15 +330,49 @@ class MainFrame ( wx.Frame ):
         # do whatever you want with the file path...
 
 
+    def OnSize(self, event): 
+        size = self.Graphs.GetClientSize() 
+        #self.plotpanel.fig.set_figwidth(size[0]/(1.0*self.plotpanel.fig.get_dpi())) 
+        #self.plotpanel.fig.set_figheight(size[1]/(1.0*self.plotpanel.fig.get_dpi())) 
+        #self.plotpanel.canvas.resize(size[0],size[1]) 
+        #self.plotpanel.canvas.draw() 
+        self.plotpanel.canvas.SetClientSize(size)
+        self.plotpanel.SetClientSize(size)
+        event.Skip()
+
+    """
+    def OnSize(self,event):
+        size = self.parent.GetClientSize()
+        self.parent.SetClientSize(size)
+    """
+
+    """
+    def ResizeCanvas(self): 
+        size = self.parent.GetClientSize() 
+        self.fig.set_figwidth(size[0]/(1.0*self.fig.get_dpi())) 
+        self.fig.set_figheight(size[1]/(1.0*self.fig.get_dpi())) 
+        self.canvas.resize(size[0],size[1]) 
+        self.canvas.draw() 
+    """
+
+
+
     def RunAndSave(self,e):
         try:
             #print 'running xpp'
-            self.npa, self.vn = xpprun(self.fullname, clean_after=True)
+            self.npa, self.vn, outputfilepath = xpprun(self.fullname, clean_after=False,return_tempname=True)
             self.t = self.npa[:,0]
             self.sv = self.npa[:,1:]
 
-            # update graph
+            # update graph tab
             self.plotpanel.init_plot(self.t,self.npa[:,1])
+
+            # update data tab
+            f = open(outputfilepath, 'r')
+            self.outDisplay.SetValue(f.read())
+
+            # clean temporary ode files
+            os.remove(outputfilepath)
 
         except IOError:
             # A message dialog box with an OK button. wx.OK is a standard ID in wxWidgets.

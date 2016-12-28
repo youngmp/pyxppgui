@@ -188,7 +188,7 @@ def change_inits_in_ode_and_save(srclines, inits, newfilepath):
 
 
 
-def xpprun(filepath, version=8, xppname='xppaut', postfix='_tmp', parameters=None, inits=None, clean_after=False):
+def xpprun(filepath, version=8, xppname='xppaut', postfix='_tmp', parameters=None, inits=None, clean_after=False,return_tempname=False):
     """
     A simple interface to xppaut. It runs xpp in a silent mode 'xpp some_ode_file.ode -silent'
     and analyses the result of computation, a file produced by xpp (output.dat by default).
@@ -209,7 +209,7 @@ def xpprun(filepath, version=8, xppname='xppaut', postfix='_tmp', parameters=Non
     xppname - name of xpp as you call it from Terminal
     postfix - the postfix of new .ode file made out of original
     parameters - the dict of parameters to be modified
-    clean_after - if True temporary .ode file (with modified parameters) would be deleted after computations
+    clean_after - if Falsem temporary .ode file (with modified parameters) would be deleted after computations
 
     Output: tuple (out, vn) or None
 
@@ -310,9 +310,12 @@ def xpprun(filepath, version=8, xppname='xppaut', postfix='_tmp', parameters=Non
             os.remove(outputfilepath)
         if newfilepath!='':
             os.remove(newfilepath)
-
-
-    return ret
+    #print return_tempname, clean_after
+    if return_tempname and not(clean_after):
+        #print ret+outputfilepath
+        return ret+(outputfilepath,)
+    else:
+        return ret
 
 read_pars = read_pars_values_from_file
 read_inits = read_init_values_from_file
