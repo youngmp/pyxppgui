@@ -320,6 +320,7 @@ def xpprun(filepath, version=8, xppname='xppaut', postfix='_tmp', parameters=Non
 read_pars = read_pars_values_from_file
 read_inits = read_init_values_from_file
 read_numerics = read_numerics_settings_from_file
+read_sv = search_state_vars_in_srclines
 
 if __name__ == "__main__":
     pass

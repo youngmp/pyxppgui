@@ -26,7 +26,7 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import numpy as np
 
-from xppcall import xpprun, read_pars, read_inits, read_numerics
+from xppcall import xpprun, read_pars, read_inits, read_numerics, read_sv
 
 ###########################################################################
 ## Class MainFrame
@@ -118,7 +118,7 @@ class PlotPanel(wx.Panel):
 
 class MainFrame ( wx.Frame ):
     def __init__( self, parent ):
-        wx.Frame.__init__( self, parent, id = wx.ID_ANY, title = wx.EmptyString, pos = wx.DefaultPosition, size = wx.Size( 600,600 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
+        wx.Frame.__init__( self, parent, id = wx.ID_ANY, title = wx.EmptyString, pos = wx.DefaultPosition, size = wx.Size( 800,650 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
         
         self.SetSizeHintsSz( wx.DefaultSize, wx.DefaultSize )
     
@@ -213,20 +213,69 @@ class MainFrame ( wx.Frame ):
         self.outDisplay = wx.TextCtrl( self.Output, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_MULTILINE|wx.TE_READONLY|wx.TE_WORDWRAP )
         bSizer3.Add( self.outDisplay, 1, wx.ALL|wx.EXPAND, 5 )
         
-        
+        # set sizer for output
         self.Output.SetSizer( bSizer3 )
         self.Output.Layout()
         bSizer3.Fit( self.Output )
         self.m_notebook1.AddPage( self.Output, u"Output", False )
 
-        # graphs
+
+        
+        ## graphs
+        
+        # graph panel
         self.Graphs = wx.Panel( self.m_notebook1, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
+        
+        # set sizer for graph panel
+        sizergraphs = wx.BoxSizer( wx.VERTICAL )		
+
+
+        # set sizer for buttons
+        sizerbuttons = wx.BoxSizer( wx.HORIZONTAL )
+
+        # x coordinate text
+        self.plt_optx = wx.StaticText( self.Graphs, wx.ID_ANY, u"Plot x:", wx.DefaultPosition, wx.DefaultSize)
+        sizerbuttons.Add(self.plt_optx)
+
+        # drop-down list 1 above plot window 
+        self.sv_choicex = wx.Choice( choices=['-'],parent=self.Graphs, id=wx.ID_ANY,pos=wx.DefaultPosition)
+        sizerbuttons.Add(self.sv_choicex)
+
+        # y coordinate text
+        self.plt_opty = wx.StaticText( self.Graphs, wx.ID_ANY, u"\tPlot y:", wx.DefaultPosition, wx.DefaultSize)
+        sizerbuttons.Add(self.plt_opty)
+            
+        # second dropdown list
+        self.sv_choicey = wx.Choice( choices=['-'], parent=self.Graphs, id=wx.ID_ANY,pos=wx.DefaultPosition)
+        sizerbuttons.Add(self.sv_choicey)
+        
+        # add note on control
+        self.hint_specific = wx.StaticText( self.Graphs, wx.ID_ANY, u"\tTo zoom in/out, hold Ctrl+Right click and move the mouse around.", wx.DefaultPosition, wx.DefaultSize)
+        sizerbuttons.Add(self.hint_specific)
+
+
+
+        sizergraphs.Add(sizerbuttons)
+
+
+
+        # plot window
+        self.graphpanel = wx.Panel(self.Graphs, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL)
+        sizergraphs.Add(self.graphpanel,1, wx.EXPAND |wx.ALL, 5)
+        #sizergraphs.Fit(self.graphpanel)
+        
+        self.Graphs.SetSizer(sizergraphs)
+        self.Graphs.Layout()
+        self.Graphs.Fit()
+
+        # add graphs panel to tabs
         self.m_notebook1.AddPage( self.Graphs, u"Graphs", False )
 
 
 
+
+        # main sizer        
         bSizer1.Add( self.m_notebook1, 1, wx.EXPAND |wx.ALL, 5 )
-        
         self.SetSizer( bSizer1 )
         self.Layout()
         
@@ -260,10 +309,13 @@ class MainFrame ( wx.Frame ):
         self.Bind(wx.EVT_SIZE, self.OnSize) 
 
 
+        # plot menu event
+        self.Bind(wx.EVT_CHOICE, self.onSVSelectx, self.sv_choicex)
+        self.Bind(wx.EVT_CHOICE, self.onSVSelecty, self.sv_choicey)
 
 
         # matplotlib panel
-        self.plotpanel = PlotPanel(self.Graphs)
+        self.plotpanel = PlotPanel(self.graphpanel)
 
         self.fullname = ''
 
@@ -332,29 +384,31 @@ class MainFrame ( wx.Frame ):
 
     def OnSize(self, event): 
         size = self.Graphs.GetClientSize() 
-        #self.plotpanel.fig.set_figwidth(size[0]/(1.0*self.plotpanel.fig.get_dpi())) 
-        #self.plotpanel.fig.set_figheight(size[1]/(1.0*self.plotpanel.fig.get_dpi())) 
-        #self.plotpanel.canvas.resize(size[0],size[1]) 
-        #self.plotpanel.canvas.draw() 
-        self.plotpanel.canvas.SetClientSize(size)
-        self.plotpanel.SetClientSize(size)
+        #self.plotpanel.canvas.SetClientSize((size[0],size[1]*.8))
+        self.plotpanel.SetClientSize((size[0],size[1]*.9))
         event.Skip()
 
-    """
-    def OnSize(self,event):
-        size = self.parent.GetClientSize()
-        self.parent.SetClientSize(size)
-    """
+    def onSVSelectx(self, event):
+        #print "You selected: " + self.sv_choicex.GetStringSelection()
+        #obj = self.sv_choicex.GetClientData(self.sv_choicex.GetSelection())
+        choice = self.sv_choicex.GetStringSelection()
+        if choice == 't':
+            self.plotx = self.t
+        else:
+            self.plotx = self.sv[:,self.vn.index(choice)]
+            
+        self.plotpanel.init_plot(self.plotx,self.ploty)
 
-    """
-    def ResizeCanvas(self): 
-        size = self.parent.GetClientSize() 
-        self.fig.set_figwidth(size[0]/(1.0*self.fig.get_dpi())) 
-        self.fig.set_figheight(size[1]/(1.0*self.fig.get_dpi())) 
-        self.canvas.resize(size[0],size[1]) 
-        self.canvas.draw() 
-    """
-
+    def onSVSelecty(self, event):
+        #print "You selected: " + self.sv_choicex.GetStringSelection()
+        #obj = self.sv_choicex.GetClientData(self.sv_choicex.GetSelection())
+        choice = self.sv_choicey.GetStringSelection()
+        if choice == 't':
+            self.ploty = self.t
+        else:
+            self.ploty = self.sv[:,self.vn.index(choice)]
+            
+        self.plotpanel.init_plot(self.plotx,self.ploty)
 
 
     def RunAndSave(self,e):
@@ -364,8 +418,11 @@ class MainFrame ( wx.Frame ):
             self.t = self.npa[:,0]
             self.sv = self.npa[:,1:]
 
+            self.plotx = self.t
+            self.ploty = self.npa[:,1]
+
             # update graph tab
-            self.plotpanel.init_plot(self.t,self.npa[:,1])
+            self.plotpanel.init_plot(self.plotx,self.ploty)
 
             # update data tab
             f = open(outputfilepath, 'r')
@@ -373,6 +430,16 @@ class MainFrame ( wx.Frame ):
 
             # clean temporary ode files
             os.remove(outputfilepath)
+
+            # set x vs y plot options 
+            # loop over dictionary to extract state variables
+            svlist = ['t']
+            for i in self.vn:
+                svlist.append(i)
+
+            # update the drop-down menus
+            self.sv_choicex.SetItems(svlist)
+            self.sv_choicey.SetItems(svlist)
 
         except IOError:
             # A message dialog box with an OK button. wx.OK is a standard ID in wxWidgets.
