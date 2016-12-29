@@ -14,6 +14,7 @@ import matplotlib
 import wx
 import wx.xrc
 import os
+import re
 
 import gtk
 
@@ -88,6 +89,8 @@ class PlotPanel(wx.Panel):
         self.toolbar.update()  # Not sure why this is needed - ADS
 
     def init_plot(self,x,y,title='',xlabel='',ylabel=''):
+
+        #self.ax.clear()
 
         self.lines.set_xdata(x)#plot(x,y)
         self.lines.set_ydata(y)
@@ -271,6 +274,10 @@ class MainFrame ( wx.Frame ):
         self.Graphs.Layout()
         self.Graphs.Fit()
 
+        # default plot values
+        self.plotx = [0]
+        self.ploty = [0]
+
         # add graphs panel to tabs
         self.m_notebook1.AddPage( self.Graphs, u"Graphs", False )
 
@@ -285,16 +292,23 @@ class MainFrame ( wx.Frame ):
         
         filemenu = wx.Menu()
         recent = wx.Menu()
+        windowmenu = wx.Menu()
+
         
+        # filemenu
         # wx.ID_ABOUT and wx.ID_EXIT are standard ids provided by wxWidgets.
         menuOpen = filemenu.Append(wx.ID_OPEN,"Open...","Open an ODE file")
         menuRecent = filemenu.AppendMenu(wx.ID_ANY,"&Recent Files", recent)
         menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
         
+        # windowmenu
+        menuWindow = windowmenu.Append(wx.ID_ANY,"Fit","Fit Data Plot")
         
         # Creating the menubar.
         menuBar = wx.MenuBar()
         menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
+        menuBar.Append(windowmenu,"&Window") # Adding the "filemenu" to the MenuBar
+
         self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
 
         # Set events.
@@ -302,6 +316,7 @@ class MainFrame ( wx.Frame ):
         self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
         self.Bind(wx.EVT_MENU_RANGE, self.on_file_history, id=wx.ID_FILE1, id2=wx.ID_FILE9)
         self.Bind(wx.EVT_MENU, self.OnOpen, menuOpen)
+        self.Bind(wx.EVT_MENU, self.WindowFit, menuWindow)
 
         # button events
         self.Bind(wx.EVT_BUTTON, self.RunAndSave, self.saveButton)
@@ -320,6 +335,8 @@ class MainFrame ( wx.Frame ):
         # matplotlib panel
         self.plotpanel = PlotPanel(self.graphpanel)
 
+
+        # some default values
         self.fullname = ''
 
         self.Show(True)
@@ -340,14 +357,58 @@ class MainFrame ( wx.Frame ):
     def h2xppcall(self,a):
         """
         convert human-readable format into xppcall compatible format
+        e.g. convert 'q=2,r=1.1' to {'q':2,'r':1.1}
+        OR
+        convert 'q=2\n r=1.1' to {'q':2,'r':1.1}
         """
-        pass
+        # convert all newline to commas
+        a = a.replace("\n",",")
+        
+        # remove spaces
+        a = a.replace(" ","")
+        
+        # split on commas
+        a = a.split(",")
+
+        pardict = {}
+        #print 'abefore', parlist
+
+        # for each parameter, add to dictionary
+        for i in range(len(a)):
+            par = a[i].split('=')
+            pardict[par[0]]=float(par[1])
+
+        #print 'a',pardict
+        return pardict
+            
 
     def xppcall2h(self,a):
         """
         convert xppcall format to human-readable format.
+        e.g. convert {'g':10,'n':2} to 'g=10\n n=2'
         """
-        pass
+        alist = ''
+        for i in a:
+            alist += str(i)+'='+a[i]+'\n'
+
+        # remove trailing \n
+        alist = alist.rstrip()
+        
+        return alist
+
+    def WindowFit(self,e):
+        """
+        fit plot data
+        """
+        xmin = np.amin(self.plotx)
+        xmax = np.amax(self.plotx)
+        self.plotpanel.ax.set_xlim(xmin,xmax)
+
+        ymin = np.amin(self.ploty)
+        ymax = np.amax(self.ploty)
+        self.plotpanel.ax.set_ylim(ymin,ymax)
+
+        self.plotpanel.canvas.draw()
 
     def OnOpen(self,e):
         """ Open a file"""
@@ -367,34 +428,23 @@ class MainFrame ( wx.Frame ):
             # read equations and display
             self.eqnDisplay.SetValue(f.read())
 
-            
             # read parameters and display
-            self.params = read_pars(self.fullname)
-            paramslist = ''
-            for i in self.params:
-                paramslist += str(i)+'='+self.params[i]+'\n'
-            
-            self.paramDisplay.SetValue(paramslist)
+            self.params = read_pars(self.fullname)            
+            self.paramDisplay.SetValue(self.xppcall2h(self.params))
 
             # read initial conditions and display
             self.inits = read_inits(self.fullname)
-            initslist = ''
-            for i in self.inits:
-                initslist += str(i)+'='+self.inits[i]+'\n'
+            self.initDisplay.SetValue(self.xppcall2h(self.inits))
             
-            self.initDisplay.SetValue(initslist)
-            
-
             # read options and display
             self.opts = read_numerics(self.fullname)
-            optslist = ''
-            for i in self.opts:
-                optslist += str(i)+'='+self.opts[i]+'\n'
-            self.optDisplay.SetValue(optslist)
+            self.optDisplay.SetValue(self.xppcall2h(self.opts))
 
 
             # update filename
             self.filenameDisplay.SetLabel('Loaded '+self.filename)
+
+
 
 
             f.close()
@@ -416,54 +466,69 @@ class MainFrame ( wx.Frame ):
     def onSVSelectx(self, event):
         #print "You selected: " + self.sv_choicex.GetStringSelection()
         #obj = self.sv_choicex.GetClientData(self.sv_choicex.GetSelection())
-        choice = self.sv_choicex.GetStringSelection()
-        if choice == 't':
+        self.choicex = self.sv_choicex.GetStringSelection()
+        if self.choicex == 't':
             self.plotx = self.t
         else:
-            self.plotx = self.sv[:,self.vn.index(choice)]
+            self.plotx = self.sv[:,self.vn.index(self.choicex)]
             
         self.plotpanel.init_plot(self.plotx,self.ploty)
 
     def onSVSelecty(self, event):
         #print "You selected: " + self.sv_choicex.GetStringSelection()
         #obj = self.sv_choicex.GetClientData(self.sv_choicex.GetSelection())
-        choice = self.sv_choicey.GetStringSelection()
-        if choice == 't':
+        self.choicey = self.sv_choicey.GetStringSelection()
+        if self.choicey == 't':
             self.ploty = self.t
         else:
-            self.ploty = self.sv[:,self.vn.index(choice)]
+            self.ploty = self.sv[:,self.vn.index(self.choicey)]
             
         self.plotpanel.init_plot(self.plotx,self.ploty)
 
 
     def RunAndSave(self,e):
+        if (self.paramDisplay.GetValue() == '') and\
+           (self.optDisplay.GetValue() == '') and\
+           (self.initDisplay.GetValue() == ''):
+            dlg = wx.MessageDialog( self, "Please load an ODE file first.", "Error", wx.OK)
+            dlg.ShowModal() # Show it
+            dlg.Destroy() # finally destroy it when finished.
+            return
         try:
             # get parameter values from windows
-            if self.firstrun:
-                self.params={}
-                self.opts={}
-                self.inits={}
+            self.params = self.h2xppcall(self.paramDisplay.GetValue())
+            self.opts = self.h2xppcall(self.optDisplay.GetValue())
+            self.inits = self.h2xppcall(self.initDisplay.GetValue())
             
-
             # http://stackoverflow.com/questions/1781571/how-to-concatenate-two-dictionaries-to-create-a-new-one-in-python
-            # parameters and options are input using the same dictionary.
+            # parameters and options are input in the same dictionary.
             combinedin = dict(self.params.items() + self.opts.items())
 
-            #print 'running xpp'
+            print 'running xpp with options',combinedin, self.inits
             self.npa, self.vn, fullfilename,outputfilepath = xpprun(self.fullname, 
                                                                      parameters=combinedin,
                                                                      inits=self.inits,
                                                                      clean_after=False,return_tempname=True)
-
-
+            
+            #print self.npa, self.vn
             self.t = self.npa[:,0]
             self.sv = self.npa[:,1:]
 
             if self.firstrun:
                 # show simple plot by default
+                # set default plot choice
+                self.choicex = 't'
+                self.choicey = self.vn[0]
+
                 self.plotx = self.t
                 self.ploty = self.npa[:,1]
                 self.firstrun = False
+            else:
+                if self.choicex == 't':
+                    self.plotx = self.t
+                else:
+                    self.plotx = self.sv[:,self.vn.index(self.choicex)]
+                self.ploty = self.sv[:,self.vn.index(self.choicey)]
 
             # update graph tab
             self.plotpanel.init_plot(self.plotx,self.ploty)
@@ -475,6 +540,7 @@ class MainFrame ( wx.Frame ):
 
             # clean temporary ode files
             os.remove(outputfilepath)
+            os.remove(fullfilename)
             #os.remove(fullfilename)
 
             # set x vs y plot options 

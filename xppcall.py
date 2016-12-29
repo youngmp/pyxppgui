@@ -275,34 +275,31 @@ def xpprun(filepath, version=8, xppname='xppaut', postfix='_tmp', parameters=Non
         # remove trailing semicolon
         inputstr = inputstr[:-1]
 
-        if (inits is not None) and (inits != {}):
-            # for each input, append to string
-            rndid='_rndid'+str(int(random()*1e15))
-            filename = name+postfix+rndid+ext # change to new file
-            newfilepath = os.path.join(path, filename)
-            fullfilename = os.path.join(path, filename)
-            change_inits_in_ode_and_save(srclines, inits, newfilepath)
-        else:
-            fullfilename = os.path.join(path, filename)
+        # for each input, append to string
+        rndid='_rndid'+str(int(random()*1e15))
+        filename = name+postfix+rndid+ext # change to new file
+        newfilepath = os.path.join(path, filename)
+        fullfilename = os.path.join(path, filename)
+        change_inits_in_ode_and_save(srclines, inits, newfilepath)
 
 
         outputfile = 'output.dat'
         outputfilepath = os.path.join(path, outputfile)
 
         try:
-
+            #print "%s %s -silent -with '%s' -runnow -outfile %s" % (xppname, fullfilename, inputstr,outputfilepath)
             res = subprocess.check_output("%s %s -silent -with '%s' -runnow -outfile %s" % (xppname, fullfilename, inputstr,outputfilepath), stderr=subprocess.STDOUT, shell=True)
 
             os.chdir(wd)
-
+            
             out = np.genfromtxt(outputfilepath, delimiter=' ')
-
+            #print out
             vn = search_state_vars_in_srclines(srclines)
 
             ret = out, vn
             
         except:
-            print 'xpp was not called properly. check that xpp is installed and its alias.'
+            print 'xpp was not called properly. check that xpp is installed. Make sure all data files are available.'
             ret = None
 
     if clean_after:
