@@ -15,6 +15,8 @@ import wx
 import wx.xrc
 import os
 import re
+import time
+
 
 import gtk
 
@@ -39,6 +41,7 @@ matplotlib.rc('image', origin='lower')
 class PlotPanel(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent, -1)
+
 
         self.parent = parent
 
@@ -105,6 +108,9 @@ class PlotPanel(wx.Panel):
         self.toolbar.update()  # Not sure why this is needed - ADS
         #plt.subplots_adjust(left=0.1, right=0.1, top=0.1, bottom=0.1)
         self.fig.tight_layout()
+
+    def plot_properties(self):
+        pass
     
     def GetToolBar(self):
         # You will need to override GetToolBar if you are using an
@@ -122,6 +128,14 @@ class PlotPanel(wx.Panel):
 class MainFrame ( wx.Frame ):
     def __init__( self, parent ):
         wx.Frame.__init__( self, parent, id = wx.ID_ANY, title = wx.EmptyString, pos = wx.DefaultPosition, size = wx.Size( 800,650 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
+
+        # undo/redo lists
+        # text value, cursor position, and line number
+        self.undoListParam=[''];self.CursorPosParam=[1];self.CursorLineParam=[]
+        self.undoListInits=[''];self.CursorPosInits=[1];self.CursorLineInits=[]
+        self.undoListOpts=[''];self.CursorPosOpts=[1];self.CursorPosInits=[]
+        #self.redoList = []
+
         
         self.SetSizeHintsSz( wx.DefaultSize, wx.DefaultSize )
     
@@ -143,43 +157,45 @@ class MainFrame ( wx.Frame ):
         self.eqnDisplay.CanPaste()
         self.eqnDisplay.CanCopy()
         self.eqnDisplay.CanUndo()
+
         Equations.Add( self.eqnDisplay, 1, wx.ALL|wx.EXPAND, 5 )
         
         
         gSizer1.Add( Equations, 2, wx.EXPAND, 5 )
         
-        Parameters = wx.BoxSizer( wx.VERTICAL )
+        self.Parameters = wx.BoxSizer( wx.VERTICAL )
         
         self.m_staticText11 = wx.StaticText( self.Equations, wx.ID_ANY, u"Parameters", wx.DefaultPosition, wx.DefaultSize, 0 )
         self.m_staticText11.Wrap( -1 )
-        Parameters.Add( self.m_staticText11, 0, wx.ALL, 5 )
+        self.Parameters.Add( self.m_staticText11, 0, wx.ALL, 5 )
 
         self.paramDisplay = wx.TextCtrl( self.Equations, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_MULTILINE)
-        Parameters.Add( self.paramDisplay, 1, wx.ALL|wx.EXPAND, 5 )
+        self.Parameters.Add( self.paramDisplay, 1, wx.ALL|wx.EXPAND, 5 )
         
         
-        gSizer1.Add( Parameters, 2, wx.EXPAND, 5 )
+        gSizer1.Add( self.Parameters, 2, wx.EXPAND, 5 )
         
-        Initial_Conditions = wx.BoxSizer( wx.VERTICAL )
+        self.Initial_Conditions = wx.BoxSizer( wx.VERTICAL )
         
         self.m_staticText111 = wx.StaticText( self.Equations, wx.ID_ANY, u"Initial Conditions", wx.DefaultPosition, wx.DefaultSize, 0 )
         self.m_staticText111.Wrap( -1 )
-        Initial_Conditions.Add( self.m_staticText111, 0, wx.ALL, 5 )
+        self.Initial_Conditions.Add( self.m_staticText111, 0, wx.ALL, 5 )
         
         self.initDisplay = wx.TextCtrl( self.Equations, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_MULTILINE)
-        Initial_Conditions.Add( self.initDisplay, 1, wx.ALL|wx.EXPAND, 5 )
-        gSizer1.Add( Initial_Conditions, 2, wx.EXPAND, 5 )        
-        Options = wx.BoxSizer( wx.VERTICAL )
-        
+        self.Initial_Conditions.Add( self.initDisplay, 1, wx.ALL|wx.EXPAND, 5 )
+        gSizer1.Add( self.Initial_Conditions, 2, wx.EXPAND, 5 )
+
+
+        self.Options = wx.BoxSizer( wx.VERTICAL )
 
         self.m_staticText1111 = wx.StaticText( self.Equations, wx.ID_ANY, u"Options", wx.DefaultPosition, wx.DefaultSize, 0 )
         self.m_staticText1111.Wrap( -1 )
-        Options.Add( self.m_staticText1111, 0, wx.ALL, 5 )
+        self.Options.Add( self.m_staticText1111, 0, wx.ALL, 5 )
         
         self.optDisplay = wx.TextCtrl( self.Equations, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, wx.TE_MULTILINE)
-        Options.Add( self.optDisplay, 1, wx.ALL|wx.EXPAND, 5 )
+        self.Options.Add( self.optDisplay, 1, wx.ALL|wx.EXPAND, 5 )
         
-        gSizer1.Add( Options, 2, wx.EXPAND, 5 )
+        gSizer1.Add( self.Options, 2, wx.EXPAND, 5 )
         
         bSizer9 = wx.BoxSizer( wx.VERTICAL )
         
@@ -208,8 +224,6 @@ class MainFrame ( wx.Frame ):
         self.Equations.Layout()
         gSizer1.Fit( self.Equations )
         self.m_notebook1.AddPage( self.Equations, u"Equations", True )
-
-
 
         self.Output = wx.Panel( self.m_notebook1, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
         bSizer3 = wx.BoxSizer( wx.VERTICAL )
@@ -282,8 +296,6 @@ class MainFrame ( wx.Frame ):
         self.m_notebook1.AddPage( self.Graphs, u"Graphs", False )
 
 
-
-
         # main sizer        
         bSizer1.Add( self.m_notebook1, 1, wx.EXPAND |wx.ALL, 5 )
         self.SetSizer( bSizer1 )
@@ -293,6 +305,7 @@ class MainFrame ( wx.Frame ):
         filemenu = wx.Menu()
         recent = wx.Menu()
         windowmenu = wx.Menu()
+        editmenu = wx.Menu()
 
         
         # filemenu
@@ -301,15 +314,29 @@ class MainFrame ( wx.Frame ):
         menuRecent = filemenu.AppendMenu(wx.ID_ANY,"&Recent Files", recent)
         menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
         
+        # editmenu
+        menuCopy = editmenu.Append(wx.ID_COPY,"Copy")
+        menuPaste = editmenu.Append(wx.ID_PASTE,"Paste")
+        menuCut = editmenu.Append(wx.ID_CUT,"Cut")
+        menuUndo = editmenu.Append(wx.ID_UNDO,"Undo")
+        
         # windowmenu
         menuWindow = windowmenu.Append(wx.ID_ANY,"Fit","Fit Data Plot")
         
         # Creating the menubar.
         menuBar = wx.MenuBar()
         menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
-        menuBar.Append(windowmenu,"&Window") # Adding the "filemenu" to the MenuBar
+        menuBar.Append(editmenu,"&Edit") # Adding the "edit" to the MenuBar
+        menuBar.Append(windowmenu,"&Window") # Adding the "window" to the MenuBar
+
 
         self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
+
+        # ACCELERATORS FOR KEYBOARD SHORTCUTS
+        accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL, ord('Q'), menuExit.GetId()),
+                                     (wx.ACCEL_CTRL, ord('Z'), menuUndo.GetId())])
+        self.m_notebook1.SetAcceleratorTable(accel_tbl)
+
 
         # Set events.
         # menu events
@@ -317,6 +344,18 @@ class MainFrame ( wx.Frame ):
         self.Bind(wx.EVT_MENU_RANGE, self.on_file_history, id=wx.ID_FILE1, id2=wx.ID_FILE9)
         self.Bind(wx.EVT_MENU, self.OnOpen, menuOpen)
         self.Bind(wx.EVT_MENU, self.WindowFit, menuWindow)
+
+
+        # textctrl events
+        # always make sure these three commands are in this order for undo to work properly.
+        self.FirstLoad = 0
+        self.undoFlag = 0
+        self.Bind(wx.EVT_TEXT,self.addUndo)#,self.paramDisplay)
+        self.Bind(wx.EVT_MENU, self.OnUndo, menuUndo)
+
+        #self.Bind(wx.EVT_TEXT_ENTER, self.addUndo)
+        #self.Bind(wx.EVT_TEXT_CUT, self.addUndo)
+        #self.Bind(wx.EVT_TEXT_PASTE, self.addUndo)
 
         # button events
         self.Bind(wx.EVT_BUTTON, self.RunAndSave, self.saveButton)
@@ -341,6 +380,87 @@ class MainFrame ( wx.Frame ):
 
         self.Show(True)
 
+    def addUndo(self,e):
+        """
+        when this event is called, save current state of all text windows
+        """
+        # the undo flag ensures that this function will not run during the undo command.
+        # the firstload flag ensures this function will erase all undo information
+        print self.FirstLoad
+        if self.FirstLoad > 0:
+
+
+            self.undoListParam=[''];self.CursorPosParam=[1];self.CursorLineParam=[]
+            self.undoListInits=[''];self.CursorPosInits=[1];self.CursorLineInits=[]
+            self.undoListOpts=[''];self.CursorPosOpts=[1];self.CursorPosInits=[]
+            #print self.undoListParam
+            self.FirstLoad -= 1
+
+            return 
+        if self.undoFlag > 0:
+            self.undoFlag -= 1
+        
+        else:
+            # if the user has not run an undo command, save current values to list
+            # also save the cursor position
+            self.undoListParam.append(self.paramDisplay.GetValue())
+            self.CursorPosParam.append(self.paramDisplay.GetInsertionPoint())
+
+            self.undoListInits.append(self.initDisplay.GetValue())
+            self.CursorPosInits.append(self.initDisplay.GetInsertionPoint())
+            
+            self.undoListOpts.append(self.optDisplay.GetValue())
+            self.CursorPosOpts.append(self.optDisplay.GetInsertionPoint())
+        print self.undoListParam
+        #print self.CursorPosParam,self.undoListParam
+        
+
+    def OnUndo(self,e):
+        
+        self.undoFlag = 3
+        #print len(self.undoListParam)
+        #print self.undoFlag
+        if len(self.undoListParam)-1 > 1:
+            self.undoListParam = self.undoListParam[:-1]
+            self.CursorPosParam = self.CursorPosParam[:-1]
+
+            self.undoListInits = self.undoListInits[:-1]
+            self.CursorPosInits = self.CursorPosInits[:-1]
+
+            self.undoListOpts = self.undoListOpts[:-1]
+            self.CursorPosOpts = self.CursorPosOpts[:-1]
+
+        else:
+            self.undoListParam = ['']
+            self.CursorPosParam = [1]
+
+            self.undoListInits = ['']
+            self.CursorPosInits = [1]
+
+            self.undoListOpts = ['']
+            self.CursorPosOpts = [1]
+
+
+
+        #print self.undoListParam[-1],self.undoListParam[-2]
+
+        #print 'undlistparam after undo', self.undoListParam
+        self.paramDisplay.SetValue(self.undoListParam[-1])
+        self.paramDisplay.SetInsertionPoint(self.CursorPosParam[-1])
+
+        self.initDisplay.SetValue(self.undoListInits[-1])
+        self.initDisplay.SetInsertionPoint(self.CursorPosInits[-1])
+
+        self.optDisplay.SetValue(self.undoListOpts[-1])
+        self.optDisplay.SetInsertionPoint(self.CursorPosOpts[-1])
+
+
+        
+    def OnTextEnter(self,e):
+        pass
+
+
+
     def UpdateParams(self,e,plist):
         """
         update parameter list 
@@ -361,25 +481,29 @@ class MainFrame ( wx.Frame ):
         OR
         convert 'q=2\n r=1.1' to {'q':2,'r':1.1}
         """
-        # convert all newline to commas
-        a = a.replace("\n",",")
-        
-        # remove spaces
-        a = a.replace(" ","")
-        
-        # split on commas
-        a = a.split(",")
 
-        pardict = {}
-        #print 'abefore', parlist
+        if (a != None) and (a != ''):
+            # convert all newline to commas
+            a = a.replace("\n",",")
 
-        # for each parameter, add to dictionary
-        for i in range(len(a)):
-            par = a[i].split('=')
-            pardict[par[0]]=float(par[1])
+            # remove spaces
+            a = a.replace(" ","")
 
-        #print 'a',pardict
-        return pardict
+            # split on commas
+            a = a.split(",")
+
+            pardict = {}
+            #print 'abefore', parlist
+
+            # for each parameter, add to dictionary
+            for i in range(len(a)):
+                par = a[i].split('=')
+                pardict[par[0]]=float(par[1])
+
+            #print 'a',pardict
+            return pardict
+        else:
+            return {}
             
 
     def xppcall2h(self,a):
@@ -412,7 +536,8 @@ class MainFrame ( wx.Frame ):
 
     def OnOpen(self,e):
         """ Open a file"""
-        self.firstrun = True
+        self.FirstLoad = 4 # used in def AddUndo
+        self.firstrun = True # used in def RunAndSave
         self.dirname = ''
         dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "ODE files (*.ode)|*.ode|All Files (*.*)|*.*", wx.OPEN)
         if dlg.ShowModal() == wx.ID_OK:
@@ -485,11 +610,14 @@ class MainFrame ( wx.Frame ):
             
         self.plotpanel.init_plot(self.plotx,self.ploty)
 
+    def onExportPlotCode(self,e):
+        """
+        export plot code.
+        """
+        pass
 
     def RunAndSave(self,e):
-        if (self.paramDisplay.GetValue() == '') and\
-           (self.optDisplay.GetValue() == '') and\
-           (self.initDisplay.GetValue() == ''):
+        if self.filenameDisplay.GetLabel() == "No ODE file loaded.":
             dlg = wx.MessageDialog( self, "Please load an ODE file first.", "Error", wx.OK)
             dlg.ShowModal() # Show it
             dlg.Destroy() # finally destroy it when finished.
@@ -499,7 +627,7 @@ class MainFrame ( wx.Frame ):
             self.params = self.h2xppcall(self.paramDisplay.GetValue())
             self.opts = self.h2xppcall(self.optDisplay.GetValue())
             self.inits = self.h2xppcall(self.initDisplay.GetValue())
-            
+            print 'self.inits,getvalue',self.inits,self.initDisplay.GetValue()
             # http://stackoverflow.com/questions/1781571/how-to-concatenate-two-dictionaries-to-create-a-new-one-in-python
             # parameters and options are input in the same dictionary.
             combinedin = dict(self.params.items() + self.opts.items())
@@ -513,7 +641,8 @@ class MainFrame ( wx.Frame ):
             #print self.npa, self.vn
             self.t = self.npa[:,0]
             self.sv = self.npa[:,1:]
-
+            #print self.sv[0,self.vn.index('sx')],self.sv[0,self.vn.index('sy')]
+            #time.sleep(10)
             if self.firstrun:
                 # show simple plot by default
                 # set default plot choice

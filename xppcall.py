@@ -165,28 +165,49 @@ def read_init_values_from_file(filepath, init_names=None):
 
 def change_inits_in_ode_and_save(srclines, inits, newfilepath):
     """
+    change existing init lines
     srclines - an ODE-file content in the list of strings,
     inits - the dict of inits to set up new values, all keys in low register!
     newfilepath - path to a new ODE file with modified inits
     """
+    
+    # force all terms in dictionary to be lower case
     linits = {pn.lower():(lambda x: repr(x) if not isinstance(x,str) else x)(pv) for pn,pv in inits.iteritems()}
+
+    # get all init names
     pnames = linits.keys()
+
+    # 
     def repl_in_par(matchobj):
         mog = matchobj.group(1).lower()
         if mog in pnames:
            return matchobj.group(1)+matchobj.group(2)+linits[mog]
         else:
            return matchobj.group(0)
+
+    # get index of lines matching the init term
     i_par_lines = np.nonzero([re.search('^ *(init) (.+)$', line, flags=re.IGNORECASE) is not None for line in srclines])[0]
+
+
     nsrclines=srclines[:]
+
+    # if nonempty list, modify each init and save
     for i in i_par_lines:
         nsrclines[i] = re.sub('([a-z0-9_]+)( *= *)([0-9\.e\-\+]+)', repl_in_par, nsrclines[i], flags=re.IGNORECASE)
     nsrc = ''.join(nsrclines)
     with open(newfilepath, 'w') as f:
         f.write(nsrc)
 
+    # if list empty and inits != {}, add lines.
+    # search for done or d. if it exists, write to line before this point
+    # if it does not exist, append to the end of file.
 
-
+def check_if_in_ode(srclines,inits,newfilepath):
+    """
+    check whether a set of parameters, options, or inits are listed in an ODE
+    return {dictonary of existing guys}, {dictionary of nonexisting guys}
+    """
+    pass
 
 def xpprun(filepath, version=8, xppname='xppaut', postfix='_tmp', parameters=None, inits=None, clean_after=False,return_tempname=False):
     """
