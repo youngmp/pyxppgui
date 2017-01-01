@@ -202,11 +202,23 @@ def change_inits_in_ode_and_save(srclines, inits, newfilepath):
     # for each i_par_lines, iterate over variables
     dnelist = 'init '
     idx = 0
+    delete_keys = []
     
     for i in range(len(i_par_lines)):
         for k in inits:
             if not(k in srclines[i_par_lines[i]]):
-                dnelist += k+'='+str(inits[k])
+                # verify that this init is a state variable
+                vn = search_state_vars_in_srclines(srclines)
+                if k in vn:
+                    dnelist += k+'='+str(inits[k])
+                else:
+                    # mark key for deletion
+                    delete_keys.append(k)
+
+    # delete extraneous keys
+    for key in delete_keys:
+        del inits[key]
+    #print inits
 
     if dnelist != 'init ':
         # if new inits defined, remove done flag, move to end
@@ -214,7 +226,7 @@ def change_inits_in_ode_and_save(srclines, inits, newfilepath):
         dnelist += '\n'
         srclines.append(dnelist)
         srclines.append('d')
-    print srclines
+    #print srclines
 
 
     nsrclines=srclines[:]

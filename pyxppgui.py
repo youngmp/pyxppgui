@@ -259,7 +259,9 @@ class MainFrame ( wx.Frame ):
 
         # drop-down list 1 above plot window 
         self.sv_choicex = wx.Choice( choices=['-'],parent=self.Graphs, id=wx.ID_ANY,pos=wx.DefaultPosition)
-        sizerbuttons.Add(self.sv_choicex)
+        self.sv_choicex.InvalidateBestSize()
+        self.sv_choicex.SetSize(self.sv_choicex.GetBestSize())
+        sizerbuttons.Add(self.sv_choicex,1,wx.EXPAND)
 
         # y coordinate text
         self.plt_opty = wx.StaticText( self.Graphs, wx.ID_ANY, u"\tPlot y:", wx.DefaultPosition, wx.DefaultSize)
@@ -267,11 +269,13 @@ class MainFrame ( wx.Frame ):
             
         # second dropdown list
         self.sv_choicey = wx.Choice( choices=['-'], parent=self.Graphs, id=wx.ID_ANY,pos=wx.DefaultPosition)
-        sizerbuttons.Add(self.sv_choicey)
+        self.sv_choicey.InvalidateBestSize()
+        self.sv_choicey.SetSize(self.sv_choicey.GetBestSize())
+        sizerbuttons.Add(self.sv_choicey,1,wx.EXPAND)
         
         # add note on control
-        self.hint_specific = wx.StaticText( self.Graphs, wx.ID_ANY, u"\tTo zoom in/out, selct the move button below, then hold Ctrl+Right click and move the mouse around.", wx.DefaultPosition, wx.DefaultSize)
-        sizerbuttons.Add(self.hint_specific)
+        #self.hint_specific = wx.StaticText( self.Graphs, wx.ID_ANY, u"\tTo zoom in/out, selct the move button below, then hold Ctrl+Right click and move the mouse around.", wx.DefaultPosition, wx.DefaultSize)
+        #sizerbuttons.Add(self.hint_specific)
 
 
 
@@ -334,7 +338,10 @@ class MainFrame ( wx.Frame ):
 
         # ACCELERATORS FOR KEYBOARD SHORTCUTS
         accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL, ord('Q'), menuExit.GetId()),
-                                     (wx.ACCEL_CTRL, ord('Z'), menuUndo.GetId())])
+                                         (wx.ACCEL_CTRL, ord('Z'), menuUndo.GetId()),
+                                         (wx.ACCEL_CTRL, ord('C'), menuCopy.GetId()),
+                                         (wx.ACCEL_CTRL, ord('X'), menuCut.GetId()),
+                                         (wx.ACCEL_CTRL, ord('V'), menuPaste.GetId())])
         self.m_notebook1.SetAcceleratorTable(accel_tbl)
 
 
@@ -596,6 +603,9 @@ class MainFrame ( wx.Frame ):
             self.plotx = self.t
         else:
             self.plotx = self.sv[:,self.vn.index(self.choicex)]
+
+        self.sv_choicex.InvalidateBestSize()
+        self.sv_choicex.SetSize(self.sv_choicex.GetBestSize())
             
         self.plotpanel.init_plot(self.plotx,self.ploty)
 
@@ -607,6 +617,10 @@ class MainFrame ( wx.Frame ):
             self.ploty = self.t
         else:
             self.ploty = self.sv[:,self.vn.index(self.choicey)]
+
+        self.sv_choicey.InvalidateBestSize()
+        self.sv_choicey.SetSize(self.sv_choicey.GetBestSize())
+
             
         self.plotpanel.init_plot(self.plotx,self.ploty)
 
@@ -627,7 +641,7 @@ class MainFrame ( wx.Frame ):
             self.params = self.h2xppcall(self.paramDisplay.GetValue())
             self.opts = self.h2xppcall(self.optDisplay.GetValue())
             self.inits = self.h2xppcall(self.initDisplay.GetValue())
-            print 'self.inits,getvalue',self.inits,self.initDisplay.GetValue()
+            #print 'self.inits,getvalue',self.inits,self.initDisplay.GetValue()
             # http://stackoverflow.com/questions/1781571/how-to-concatenate-two-dictionaries-to-create-a-new-one-in-python
             # parameters and options are input in the same dictionary.
             combinedin = dict(self.params.items() + self.opts.items())
