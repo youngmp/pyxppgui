@@ -386,7 +386,7 @@ class MainFrame ( wx.Frame ):
         """
         # the undo flag ensures that this function will not run during the undo command.
         # the firstload flag ensures this function will erase all undo information
-        print self.FirstLoad
+        #print self.FirstLoad
         if self.FirstLoad > 0:
 
 
@@ -411,7 +411,7 @@ class MainFrame ( wx.Frame ):
             
             self.undoListOpts.append(self.optDisplay.GetValue())
             self.CursorPosOpts.append(self.optDisplay.GetInsertionPoint())
-        print self.undoListParam
+        #print self.undoListParam
         #print self.CursorPosParam,self.undoListParam
         
 

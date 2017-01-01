@@ -187,6 +187,34 @@ def change_inits_in_ode_and_save(srclines, inits, newfilepath):
 
     # get index of lines matching the init term
     i_par_lines = np.nonzero([re.search('^ *(init) (.+)$', line, flags=re.IGNORECASE) is not None for line in srclines])[0]
+    # get line of 'done' flag. empty string if it does not exist.
+    i_d_line = np.nonzero([re.search('^ *(d)|^ *(done)',line,flags=re.IGNORECASE) is not None for line in srclines])[0]
+
+
+    # if the done flag position is empty, return -1
+    # else return the position number.
+    if i_d_line.size == 0:
+        i_d_line = -1
+    else:
+        i_d_line = i_d_line[0]
+
+    # mark which inits exist and which do not.
+    # for each i_par_lines, iterate over variables
+    dnelist = 'init '
+    idx = 0
+    
+    for i in range(len(i_par_lines)):
+        for k in inits:
+            if not(k in srclines[i_par_lines[i]]):
+                dnelist += k+'='+str(inits[k])
+
+    if dnelist != 'init ':
+        # if new inits defined, remove done flag, move to end
+        srclines[i_d_line] = ''
+        dnelist += '\n'
+        srclines.append(dnelist)
+        srclines.append('d')
+    print srclines
 
 
     nsrclines=srclines[:]
@@ -202,12 +230,6 @@ def change_inits_in_ode_and_save(srclines, inits, newfilepath):
     # search for done or d. if it exists, write to line before this point
     # if it does not exist, append to the end of file.
 
-def check_if_in_ode(srclines,inits,newfilepath):
-    """
-    check whether a set of parameters, options, or inits are listed in an ODE
-    return {dictonary of existing guys}, {dictionary of nonexisting guys}
-    """
-    pass
 
 def xpprun(filepath, version=8, xppname='xppaut', postfix='_tmp', parameters=None, inits=None, clean_after=False,return_tempname=False):
     """
