@@ -95,7 +95,15 @@ class PlotPanel(wx.Panel):
 
         self.toolbar.update()  # Not sure why this is needed - ADS
 
-    def init_plot(self,x,y,title='',xlabel='',ylabel='',marker='',ls='-',lw='3',markersize=1):
+    def init_plot(self,x,y,
+                  title='',
+                  xlabel='',
+                  ylabel='',
+                  marker='',
+                  ls='-',
+                  lw='3',
+                  markersize=1,
+                  color='blue'):
 
         #self.ax.clear()
         self.lines.set_xdata(x)
@@ -105,6 +113,8 @@ class PlotPanel(wx.Panel):
         self.lines.set_linestyle(ls)
         self.lines.set_linewidth(lw)
         self.lines.set_markersize(markersize)
+        self.lines.set_markeredgecolor(color)
+        self.lines.set_color(color)
         #self.lines.
         #self.lines.set_xdata(x)#plot(x,y)
         #self.lines.set_ydata(y)
@@ -296,10 +306,28 @@ class MainFrame ( wx.Frame ):
         sizerbuttons.Add(self.plt_stl)
             
         # plot style options
-        self.style_opts = wx.Choice( choices=['Continuous','Discrete','Mixed'], parent=self.Graphs, id=wx.ID_ANY,pos=wx.DefaultPosition)
+        self.style_opts = wx.Choice( choices=['Continuous',
+                                              'Discrete',
+                                              '--',
+                                              '-.'], parent=self.Graphs, id=wx.ID_ANY,pos=wx.DefaultPosition)
         self.style_opts.InvalidateBestSize()
         self.style_opts.SetSize(self.style_opts.GetBestSize())
         sizerbuttons.Add(self.style_opts,0,wx.EXPAND)
+
+        # plot color text
+        self.plt_color_txt = wx.StaticText( self.Graphs, wx.ID_ANY, u"\tPlot Color", wx.DefaultPosition, wx.DefaultSize)
+        sizerbuttons.Add(self.plt_color_txt)
+        
+        # plot color options
+        self.plt_color_opts = wx.Choice( choices=['Blue',
+                                              'Green',
+                                              'Red',
+                                              'Orange'], parent=self.Graphs, id=wx.ID_ANY,pos=wx.DefaultPosition)
+        self.plt_color_opts.InvalidateBestSize()
+        self.plt_color_opts.SetSize(self.plt_color_opts.GetBestSize())
+        sizerbuttons.Add(self.plt_color_opts,0,wx.EXPAND)
+
+        
 
 
         
@@ -407,7 +435,7 @@ class MainFrame ( wx.Frame ):
         self.Bind(wx.EVT_CHOICE, self.onSVSelectx, self.sv_choicex)
         self.Bind(wx.EVT_CHOICE, self.onSVSelecty, self.sv_choicey)
         self.Bind(wx.EVT_CHOICE, self.onStyleSelect, self.style_opts)
-
+        self.Bind(wx.EVT_CHOICE, self.onPltColorSelect, self.plt_color_opts)
 
         # matplotlib panel
         self.plotpanel = PlotPanel(self.graphpanel)
@@ -415,7 +443,7 @@ class MainFrame ( wx.Frame ):
 
         # some default values
         self.fullname = ''
-        self.ls='-';self.marker=''
+        self.ls='-';self.marker='';self.color='blue'
 
         self.Show(True)
 
@@ -642,7 +670,10 @@ class MainFrame ( wx.Frame ):
         self.sv_choicex.InvalidateBestSize()
         self.sv_choicex.SetSize(self.sv_choicex.GetBestSize())
             
-        self.plotpanel.init_plot(self.plotx,self.ploty,ls=self.ls,marker=self.marker)
+        self.plotpanel.init_plot(self.plotx,self.ploty,
+                                 ls=self.ls,
+                                 marker=self.marker,
+                                 color=self.color)
 
     def onSVSelecty(self, event):
         #print "You selected: " + self.sv_choicex.GetStringSelection()
@@ -657,7 +688,10 @@ class MainFrame ( wx.Frame ):
         self.sv_choicey.SetSize(self.sv_choicey.GetBestSize())
 
             
-        self.plotpanel.init_plot(self.plotx,self.ploty,ls=self.ls,marker=self.marker)
+        self.plotpanel.init_plot(self.plotx,self.ploty,
+                                 ls=self.ls,
+                                 marker=self.marker,
+                                 color=self.color)
 
 
     def onStyleSelect(self,e):
@@ -670,16 +704,49 @@ class MainFrame ( wx.Frame ):
         elif self.style_choice == 'Discrete':
             self.ls='';self.marker='o'
         elif self.style_choice == 'Mixed':
-            self.ls='o';self.marker='o'
+            self.ls='-';self.marker='o'
+        elif self.style_choice == '--':
+            self.ls='--';self.marker=''
+        elif self.style_choice == '-.':
+            self.ls='-.';self.marker=''
         else:
-            print 'warning invalid choice', self.style_choice
+            print 'warning invalid style choice', self.style_choice
             self.ls='-';self.marker=''
 
         self.style_opts.InvalidateBestSize()
         self.style_opts.SetSize(self.style_opts.GetBestSize())
 
-        self.plotpanel.init_plot(self.plotx,self.ploty,ls=self.ls,marker=self.marker)
+        self.plotpanel.init_plot(self.plotx,self.ploty,
+                                 ls=self.ls,
+                                 marker=self.marker,
+                                 color=self.color)
         
+
+    def onPltColorSelect(self,e):
+        """
+        plot style selection event
+        """
+        self.color_choice = self.plt_color_opts.GetStringSelection()
+        if self.color_choice == 'Blue':
+            self.color='blue'
+        elif self.color_choice == 'Green':
+            self.color='green'
+        elif self.color_choice == 'Red':
+            self.color='red'
+        elif self.color_choice == 'Orange':
+            self.color='orange'
+        else:
+            print 'warning invalid color choice', self.color_choice
+            self.color = 'blue'
+
+        self.style_opts.InvalidateBestSize()
+        self.style_opts.SetSize(self.style_opts.GetBestSize())
+
+        self.plotpanel.init_plot(self.plotx,self.ploty,
+                                 ls=self.ls,
+                                 marker=self.marker,
+                                 color=self.color)
+
 
 
     def onExportPlotCode(self,e):
