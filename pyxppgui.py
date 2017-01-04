@@ -50,6 +50,10 @@ class PlotPanel(wx.Panel):
         self.lines, = self.ax.plot([],[])
         self.ax.set_autoscaley_on(True)
         self.ax.set_autoscalex_on(True)
+
+
+
+
         #self.ax.set_xlim(self.min_x, self.max_x)
 
         self.canvas = FigureCanvasWxAgg(self, -1, self.fig)
@@ -91,12 +95,19 @@ class PlotPanel(wx.Panel):
 
         self.toolbar.update()  # Not sure why this is needed - ADS
 
-    def init_plot(self,x,y,title='',xlabel='',ylabel=''):
+    def init_plot(self,x,y,title='',xlabel='',ylabel='',marker='',ls='-',lw='3',markersize=1):
 
         #self.ax.clear()
-
-        self.lines.set_xdata(x)#plot(x,y)
+        self.lines.set_xdata(x)
         self.lines.set_ydata(y)
+        #print self.lines.__dict__
+        self.lines.set_marker(marker)
+        self.lines.set_linestyle(ls)
+        self.lines.set_linewidth(lw)
+        self.lines.set_markersize(markersize)
+        #self.lines.
+        #self.lines.set_xdata(x)#plot(x,y)
+        #self.lines.set_ydata(y)
     
         self.ax.relim()
         self.ax.autoscale_view()
@@ -108,6 +119,12 @@ class PlotPanel(wx.Panel):
         self.toolbar.update()  # Not sure why this is needed - ADS
         #plt.subplots_adjust(left=0.1, right=0.1, top=0.1, bottom=0.1)
         self.fig.tight_layout()
+
+    def plot_scatter(self,x,y,title='',xlabel='',ylabel=''):
+
+        self.lines = self.ax.scatter(x,y)
+        self.canvas.draw()
+        
 
     def plot_properties(self):
         pass
@@ -261,7 +278,7 @@ class MainFrame ( wx.Frame ):
         self.sv_choicex = wx.Choice( choices=['-'],parent=self.Graphs, id=wx.ID_ANY,pos=wx.DefaultPosition)
         self.sv_choicex.InvalidateBestSize()
         self.sv_choicex.SetSize(self.sv_choicex.GetBestSize())
-        sizerbuttons.Add(self.sv_choicex,1,wx.EXPAND)
+        sizerbuttons.Add(self.sv_choicex,0,wx.EXPAND)
 
         # y coordinate text
         self.plt_opty = wx.StaticText( self.Graphs, wx.ID_ANY, u"\tPlot y:", wx.DefaultPosition, wx.DefaultSize)
@@ -271,7 +288,20 @@ class MainFrame ( wx.Frame ):
         self.sv_choicey = wx.Choice( choices=['-'], parent=self.Graphs, id=wx.ID_ANY,pos=wx.DefaultPosition)
         self.sv_choicey.InvalidateBestSize()
         self.sv_choicey.SetSize(self.sv_choicey.GetBestSize())
-        sizerbuttons.Add(self.sv_choicey,1,wx.EXPAND)
+        sizerbuttons.Add(self.sv_choicey,0,wx.EXPAND)
+
+
+        # plot style text
+        self.plt_stl = wx.StaticText( self.Graphs, wx.ID_ANY, u"\tPlot Style:", wx.DefaultPosition, wx.DefaultSize)
+        sizerbuttons.Add(self.plt_stl)
+            
+        # plot style options
+        self.style_opts = wx.Choice( choices=['Continuous','Discrete','Mixed'], parent=self.Graphs, id=wx.ID_ANY,pos=wx.DefaultPosition)
+        self.style_opts.InvalidateBestSize()
+        self.style_opts.SetSize(self.style_opts.GetBestSize())
+        sizerbuttons.Add(self.style_opts,0,wx.EXPAND)
+
+
         
         # add note on control
         #self.hint_specific = wx.StaticText( self.Graphs, wx.ID_ANY, u"\tTo zoom in/out, selct the move button below, then hold Ctrl+Right click and move the mouse around.", wx.DefaultPosition, wx.DefaultSize)
@@ -376,6 +406,7 @@ class MainFrame ( wx.Frame ):
         # plot menu event
         self.Bind(wx.EVT_CHOICE, self.onSVSelectx, self.sv_choicex)
         self.Bind(wx.EVT_CHOICE, self.onSVSelecty, self.sv_choicey)
+        self.Bind(wx.EVT_CHOICE, self.onStyleSelect, self.style_opts)
 
 
         # matplotlib panel
@@ -384,6 +415,7 @@ class MainFrame ( wx.Frame ):
 
         # some default values
         self.fullname = ''
+        self.ls='-';self.marker=''
 
         self.Show(True)
 
@@ -462,7 +494,8 @@ class MainFrame ( wx.Frame ):
         self.optDisplay.SetInsertionPoint(self.CursorPosOpts[-1])
 
 
-        
+
+
     def OnTextEnter(self,e):
         pass
 
@@ -590,9 +623,11 @@ class MainFrame ( wx.Frame ):
 
 
     def OnSize(self, event): 
-        size = self.Graphs.GetClientSize() 
-        #self.plotpanel.canvas.SetClientSize((size[0],size[1]*.8))
-        self.plotpanel.SetClientSize((size[0],size[1]*.9))
+        wW = self.Graphs.GetBestVirtualSize()[0]
+        wH = self.Graphs.GetBestVirtualSize()[1]
+        #size = self.Graphs.GetClientSize() 
+        #self.plotpanel.SetClientSize((size[0],size[1]*.9))
+        self.plotpanel.SetClientSize((wW,wH*.9))
         event.Skip()
 
     def onSVSelectx(self, event):
@@ -607,7 +642,7 @@ class MainFrame ( wx.Frame ):
         self.sv_choicex.InvalidateBestSize()
         self.sv_choicex.SetSize(self.sv_choicex.GetBestSize())
             
-        self.plotpanel.init_plot(self.plotx,self.ploty)
+        self.plotpanel.init_plot(self.plotx,self.ploty,ls=self.ls,marker=self.marker)
 
     def onSVSelecty(self, event):
         #print "You selected: " + self.sv_choicex.GetStringSelection()
@@ -622,7 +657,30 @@ class MainFrame ( wx.Frame ):
         self.sv_choicey.SetSize(self.sv_choicey.GetBestSize())
 
             
-        self.plotpanel.init_plot(self.plotx,self.ploty)
+        self.plotpanel.init_plot(self.plotx,self.ploty,ls=self.ls,marker=self.marker)
+
+
+    def onStyleSelect(self,e):
+        """
+        plot style selection event
+        """
+        self.style_choice = self.style_opts.GetStringSelection()
+        if self.style_choice == 'Continuous':
+            self.ls='-';self.marker=''
+        elif self.style_choice == 'Discrete':
+            self.ls='';self.marker='o'
+        elif self.style_choice == 'Mixed':
+            self.ls='o';self.marker='o'
+        else:
+            print 'warning invalid choice', self.style_choice
+            self.ls='-';self.marker=''
+
+        self.style_opts.InvalidateBestSize()
+        self.style_opts.SetSize(self.style_opts.GetBestSize())
+
+        self.plotpanel.init_plot(self.plotx,self.ploty,ls=self.ls,marker=self.marker)
+        
+
 
     def onExportPlotCode(self,e):
         """
