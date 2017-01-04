@@ -452,7 +452,8 @@ class MainFrame ( wx.Frame ):
         when this event is called, save current state of all text windows
         """
         # the undo flag ensures that this function will not run during the undo command.
-        # the firstload flag ensures this function will erase all undo information
+
+        # the firstload flag ensures this function will erase all undo information except the first load
         #print self.FirstLoad
         if self.FirstLoad > 0:
 
@@ -478,7 +479,7 @@ class MainFrame ( wx.Frame ):
             
             self.undoListOpts.append(self.optDisplay.GetValue())
             self.CursorPosOpts.append(self.optDisplay.GetInsertionPoint())
-        #print self.undoListParam
+        print self.undoListParam
         #print self.CursorPosParam,self.undoListParam
         
 
@@ -498,14 +499,14 @@ class MainFrame ( wx.Frame ):
             self.CursorPosOpts = self.CursorPosOpts[:-1]
 
         else:
-            self.undoListParam = ['']
-            self.CursorPosParam = [1]
+            self.undoListParam = self.undoListParam_init
+            self.CursorPosParam = [0]
 
-            self.undoListInits = ['']
-            self.CursorPosInits = [1]
+            self.undoListInits = self.undoListInits_init
+            self.CursorPosInits = [0]
 
-            self.undoListOpts = ['']
-            self.CursorPosOpts = [1]
+            self.undoListOpts = self.undoListOpts_init
+            self.CursorPosOpts = [0]
 
 
 
@@ -542,7 +543,7 @@ class MainFrame ( wx.Frame ):
     def OnExit(self,e):
         self.Close(True)  # Close the frame.
 
-    def h2xppcall(self,a):
+    def h2xppcall(self,a,return_float=False):
         """
         convert human-readable format into xppcall compatible format
         e.g. convert 'q=2,r=1.1' to {'q':2,'r':1.1}
@@ -566,7 +567,10 @@ class MainFrame ( wx.Frame ):
             # for each parameter, add to dictionary
             for i in range(len(a)):
                 par = a[i].split('=')
-                pardict[par[0]]=float(par[1])
+                if return_float:
+                    pardict[par[0]]=float(par[1])
+                else:
+                    pardict[par[0]]=par[1]
 
             #print 'a',pardict
             return pardict
@@ -637,7 +641,10 @@ class MainFrame ( wx.Frame ):
             # update filename
             self.filenameDisplay.SetLabel('Loaded '+self.filename)
 
-
+            # save beginning text fields
+            self.undoListParam_init = [self.xppcall2h(self.params)]
+            self.undoListInits_init = [self.xppcall2h(self.inits)]
+            self.undoListOpts_init = [self.xppcall2h(self.opts)]
 
 
             f.close()
@@ -765,7 +772,7 @@ class MainFrame ( wx.Frame ):
             # get parameter values from windows
             self.params = self.h2xppcall(self.paramDisplay.GetValue())
             self.opts = self.h2xppcall(self.optDisplay.GetValue())
-            self.inits = self.h2xppcall(self.initDisplay.GetValue())
+            self.inits = self.h2xppcall(self.initDisplay.GetValue(),return_float=True)
             #print 'self.inits,getvalue',self.inits,self.initDisplay.GetValue()
             # http://stackoverflow.com/questions/1781571/how-to-concatenate-two-dictionaries-to-create-a-new-one-in-python
             # parameters and options are input in the same dictionary.
@@ -790,7 +797,7 @@ class MainFrame ( wx.Frame ):
 
                 self.plotx = self.t
                 self.ploty = self.npa[:,1]
-                self.firstrun = False
+
             else:
                 if self.choicex == 't':
                     self.plotx = self.t
@@ -799,7 +806,10 @@ class MainFrame ( wx.Frame ):
                 self.ploty = self.sv[:,self.vn.index(self.choicey)]
 
             # update graph tab
-            self.plotpanel.init_plot(self.plotx,self.ploty)
+            self.plotpanel.init_plot(self.plotx,self.ploty,
+                                     ls=self.ls,
+                                     marker=self.marker,
+                                     color=self.color)
 
             # update data tab
             f = open(outputfilepath, 'r')
@@ -818,8 +828,10 @@ class MainFrame ( wx.Frame ):
                 svlist.append(i)
 
             # update the drop-down menus
-            self.sv_choicex.SetItems(svlist)
-            self.sv_choicey.SetItems(svlist)
+            if self.firstrun:
+                self.sv_choicex.SetItems(svlist)
+                self.sv_choicey.SetItems(svlist)
+                self.firstrun = False
 
         except IOError:
             # A message dialog box with an OK button. wx.OK is a standard ID in wxWidgets.
